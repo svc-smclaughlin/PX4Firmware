@@ -160,7 +160,7 @@
 #define MPU6000_ACCEL_DEFAULT_RATE			1000
 #define MPU6000_ACCEL_DEFAULT_DRIVER_FILTER_FREQ	30
 
-#define MPU6000_GYRO_DEFAULT_RANGE_G			8
+#define MPU6000_GYRO_DEFAULT_RANGE_DPS			2000
 #define MPU6000_GYRO_DEFAULT_RATE			1000
 #define MPU6000_GYRO_DEFAULT_DRIVER_FILTER_FREQ		30
 
@@ -571,11 +571,11 @@ void MPU6000::reset()
 
 	// correct gyro scale factors
 	// scale to rad/s in SI units
-	// 2000 deg/s = (2000/180)*PI = 34.906585 rad/s
+	// 2000 deg/s = (2000/180)*PI rad/s
 	// scaling factor:
-	// 1/(2^15)*(2000/180)*PI
-	_gyro_range_scale = (0.0174532 / 16.4);//1.0f / (32768.0f * (2000.0f / 180.0f) * M_PI_F);
+	// (2000/180)*PI/(2^15)
 	_gyro_range_rad_s = (2000.0f / 180.0f) * M_PI_F;
+	_gyro_range_scale = _gyro_range_rad_s / 32768;
 
 	// product-specific scaling
 	switch (_product) {
@@ -583,7 +583,7 @@ void MPU6000::reset()
 	case MPU6000ES_REV_C5:
 	case MPU6000_REV_C4:
 	case MPU6000_REV_C5:
-		// Accel scale 8g (4096 LSB/g)
+		// Accel scale 8g
 		// Rev C has different scaling than rev D
 		write_reg(MPUREG_ACCEL_CONFIG, 1 << 3);
 		break;
@@ -599,15 +599,14 @@ void MPU6000::reset()
 	// default case to cope with new chip revisions, which
 	// presumably won't have the accel scaling bug		
 	default:
-		// Accel scale 8g (4096 LSB/g)
+		// Accel scale 8g
 		write_reg(MPUREG_ACCEL_CONFIG, 2 << 3);
 		break;
 	}
 
-	// Correct accel scale factors of 4096 LSB/g
-	// scale to m/s^2 ( 1g = 9.81 m/s^2)
-	_accel_range_scale = (MPU6000_ONE_G / 4096.0f);
+	// Correct accel scale factors
 	_accel_range_m_s2 = 8.0f * MPU6000_ONE_G;
+	_accel_range_scale = _accel_range_m_s2 / 32768;
 
 	usleep(1000);
 
@@ -965,8 +964,8 @@ MPU6000::ioctl(struct file *filp, int cmd, unsigned long arg)
 	case ACCELIOCSRANGE:
 		/* XXX not implemented */
 		// XXX change these two values on set:
-		// _accel_range_scale = (9.81f / 4096.0f);
-		// _accel_range_m_s2 = 8.0f * 9.81f;
+		// _accel_range_scale = xx
+		// _accel_range_m_s2 = xx
 		return -EINVAL;
 	case ACCELIOCGRANGE:
 		return (unsigned long)((_accel_range_m_s2)/MPU6000_ONE_G + 0.5f);
